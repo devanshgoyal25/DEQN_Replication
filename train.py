@@ -56,6 +56,7 @@ def train(
 
     def get_current_policy(X, net):
         m = tf.shape(X)[0]
+        X = tf.cast(X, dtype=tf.float32)
 
         z = X[:, 0] 
         tfp = X[:, 1]
@@ -86,11 +87,36 @@ def train(
 
         return c, c_orig, k_prime, K_prime, K_prime_orig, l_prime, L_prime
 
-    def get_next_policy(X, z_next, current_policy, net):
+    def get_next_policy(X, z_next, net):
         m = tf.shape(X)[0]
-        z = X[:, 0] 
+        X = tf.cast(X, dtype=tf.float32)
 
-        c, c_orig, k_prime, K_prime, K_prime_orig, l_prime, L_prime = current_policy
+        z = X[:, 0] 
+        tfp = X[:, 1]
+        depr = X[:, 2]
+        K = X[:, 3]
+        L = X[:, 4]
+        r = X[:, 5]
+        w = X[:, 6]
+        Y = X[:, 7]
+        k = X[:, 8 : 8 + A] 
+        fw = X[:, 8 + A : 8 + 2 * A] 
+        linc = X[:, 8 + 2 * A : 8 + 3 * A] 
+        inc = X[:, 8 + 3 * A : 8 + 4 * A] 
+
+        a = net(X)
+        a_all = tf.concat([a, tf.zeros([m, 1])], axis = 1)
+
+        c_orig = inc - a_all
+        c = tf.maximum(c_orig, tf.ones_like(c_orig) * eps)
+
+        k_prime = tf.concat([tf.zeros([m, 1]), a], axis=1)
+
+        K_prime_orig = tf.reduce_sum(k_prime, axis=1, keepdims=True)
+        K_prime = tf.maximum(K_prime_orig, tf.ones_like(K_prime_orig) * eps)
+
+        l_prime = tf.tile(labor_endow, [m, 1])
+        L_prime = tf.ones_like(K_prime)
 
         z_prime = z_next * tf.ones_like(z)
 
@@ -121,19 +147,15 @@ def train(
         c_orig_prime = inc_prime - a_prime_all
         c_prime= tf.maximum(c_orig_prime, tf.ones_like(c_orig_prime) * eps)
 
-        return x_prime, R_prime, c_orig_prime, c_prime
+        return c, c_orig, k_prime, K_prime, K_prime_orig, l_prime, L_prime, x_prime, R_prime, c_orig_prime, c_prime
     
     def cost(X, net):
         m = tf.shape(X)[0]
 
-        current_policy = get_current_policy(X, net)
-
-        c, c_orig, k_prime, K_prime, K_prime_orig, l_prime, L_prime = current_policy 
-
-        x_prime_1, R_prime_1, c_orig_prime_1, c_prime_1 = get_next_policy(X, 0, current_policy, net)
-        x_prime_2, R_prime_2, c_orig_prime_2, c_prime_2 = get_next_policy(X, 1, current_policy, net)
-        x_prime_3, R_prime_3, c_orig_prime_3, c_prime_3 = get_next_policy(X, 2, current_policy, net)
-        x_prime_4, R_prime_4, c_orig_prime_4, c_prime_4 = get_next_policy(X, 3, current_policy, net)
+        c, c_orig, k_prime, K_prime, K_prime_orig, l_prime, L_prime, x_prime_1, R_prime_1, c_orig_prime_1, c_prime_1 = get_next_policy(X, 0, net)
+        _, _, _, _, _, _, _, x_prime_2, R_prime_2, c_orig_prime_2, c_prime_2 = get_next_policy(X, 1, net)
+        _, _, _, _, _, _, _, x_prime_3, R_prime_3, c_orig_prime_3, c_prime_3 = get_next_policy(X, 2, net)
+        _, _, _, _, _, _, _, x_prime_4, R_prime_4, c_orig_prime_4, c_prime_4 = get_next_policy(X, 3, net)
 
         pi_trans_to1 = p_transition * tf.ones((m, A-1))
         pi_trans_to2 = p_transition * tf.ones((m, A-1))
@@ -153,13 +175,14 @@ def train(
             ) / c[:, 0:A-1]
         )
 
-        orig_cons = tf.concat([c_orig, c_orig_prime_1, c_orig_prime_2, c_orig_prime_3, c_orig_prime_4], axis=1)
-        opt_punish_cons = (1./eps) * tf.maximum(-1 * orig_cons, tf.zeros_like(orig_cons))
+        # orig_cons = tf.concat([c_orig, c_orig_prime_1, c_orig_prime_2, c_orig_prime_3, c_orig_prime_4], axis=1)
+        # opt_punish_cons = (1./eps) * tf.maximum(-1 * orig_cons, tf.zeros_like(orig_cons))
 
-        opt_punish_ktot_prime = (1./eps) * tf.maximum(-K_prime_orig, tf.zeros_like(K_prime_orig))
+        # opt_punish_ktot_prime = (1./eps) * tf.maximum(-K_prime_orig, tf.zeros_like(K_prime_orig))
 
-        combined_opt = [opt_euler, opt_punish_cons, opt_punish_ktot_prime]
-        opt_predict = tf.concat(combined_opt, axis=1)
+        # combined_opt = [opt_euler, opt_punish_cons, opt_punish_ktot_prime]
+        # opt_predict = tf.concat(combined_opt, axis=1)
+        opt_predict = tf.concat(opt_euler, axis=1)
 
         opt_correct = tf.zeros_like(opt_predict)
 
@@ -181,9 +204,12 @@ def train(
     #----NET-----
     num_hidden_layer = len(num_hidden_nodes)
 
+    initializer1 = tf.keras.initializers.GlorotNormal(seed=1)
+    initializer2 = tf.keras.initializers.GlorotNormal(seed=2)
+
     inputs = tf.keras.Input(shape=(A * 4 + 8,))
-    hidden1 = tf.keras.layers.Dense(num_hidden_nodes[0], activation='relu')(inputs)
-    hidden2 = tf.keras.layers.Dense(num_hidden_nodes[1], activation='relu')(hidden1)
+    hidden1 = tf.keras.layers.Dense(num_hidden_nodes[0], activation='relu',kernel_initializer=initializer1, bias_initializer=initializer1)(inputs)
+    hidden2 = tf.keras.layers.Dense(num_hidden_nodes[1], activation='relu',kernel_initializer=initializer2, bias_initializer=initializer2)(hidden1)
     outputs = tf.keras.layers.Dense(A-1)(hidden2)
 
     net = tf.keras.Model(inputs=inputs, outputs=outputs)
@@ -195,11 +221,13 @@ def train(
 
     @tf.function
     def train_step(net, optimizer, X):
+        
         with tf.GradientTape() as tape:
             loss_value = cost(X, net)[0]
         grads = tape.gradient(loss_value, parameters)
+        grads = [(tf.clip_by_value(grad, -1.,1.)) for grad in grads]
 
-        optimizer.apply_gradients(loss_value, parameters)
+        optimizer.apply_gradients(zip(grads, parameters))
 
         return loss_value
     #------------
@@ -213,23 +241,20 @@ def train(
         X_episodes = np.zeros([episode_length, dim_state])
         X_episodes[0, :] = X_start
         X_old = tf.convert_to_tensor(X_start)
-        print(X_old)
 
         rand_num = np.random.rand(episode_length, 1)
 
         for t in range(1, episode_length):
             z = int(X_old[0,0])
 
-            current_policy = get_current_policy(X_old, net)
-
             if rand_num[t-1] <= pi_np[z,0]:
-                X_new = get_next_policy(X_old, 0, current_policy, net)
+                X_new = get_next_policy(X_old, 0, net)[7]
             elif rand_num[t-1] <= pi_np[z,0] + pi_np[z,1]:
-                X_new = get_next_policy(X_old, 1, current_policy, net)
+                X_new = get_next_policy(X_old, 1, net)[7]
             elif rand_num[t-1] <= pi_np[z,0] + pi_np[z,1] + pi_np[z,2]:
-                X_new = get_next_policy(X_old, 2, current_policy, net)
+                X_new = get_next_policy(X_old, 2, net)[7]
             else:
-                X_new = get_next_policy(X_old, 3, current_policy, net)
+                X_new = get_next_policy(X_old, 3, net)[7]
 
             X_episodes[t, :] = X_new
             X_old = X_new
@@ -242,7 +267,7 @@ def train(
 
     def create_minibatches(training_data_X, buffer_size, batch_size, seed):
         train_dataset = tf.data.Dataset.from_tensor_slices(training_data_X)
-        train_dataset = train_dataset.shuffle(buffer_size=buffer_size, seed=seed)
+        train_dataset = train_dataset.shuffle(buffer_size=buffer_size, seed=seed).batch(batch_size)
         return train_dataset
     #--------------
 
@@ -260,13 +285,15 @@ def train(
     print(f"start time: {time_start}")
 
     if not(False):
-        X_data_train = np.random.rand(1, num_input_nodes)
+        # X_data_train = np.random.rand(1, num_input_nodes)
+        X_data_train = np.zeros((1,32))
         X_data_train[:, 0] = (X_data_train[:, 0] > 0.5)
         X_data_train[:, 1:] = X_data_train[:, 1:] + 0.1
         assert np.min(np.sum(X_data_train[:, 1:], axis=1, keepdims=True) > 0) == True, 'Starting point has negative aggregate capital (K)!'
         print('Calculated a valid starting point')
 
     for episode in range(load_episode, num_episodes):
+        print(f"Episode: {episode}")
         X_episodes = simulate_episodes(X_data_train, len_episodes, net)
         X_data_train = X_episodes[-1, :].reshape([1, -1])
         k_dist_mean = np.mean(X_episodes[:, 8 : 8 + A], axis=0)
@@ -277,12 +304,13 @@ def train(
         max_ee = np.zeros((1, A-1))
 
         for epoch in range(epochs_per_episode):
+            print(f"Epoch: {epoch}")
             train_seed += 1
             minibatch_cost = 0
 
-            minibatches = create_minibatches(X_data_train, buffer_size, minibatch_size, seed)
+            minibatches = create_minibatches(X_episodes, buffer_size, minibatch_size, seed)
 
-            for minibatch_X in minibatches:
+            for step, minibatch_X in enumerate(minibatches):
                 cost_mini, opt_euler_ = cost(minibatch_X, net)
                 minibatch_cost += cost_mini / num_batches
 
@@ -296,5 +324,7 @@ def train(
                 cost_store.append(minibatch_cost)
                 mov_ave_cost_store.append(np.mean(cost_store[-100:]))
 
-            for minibatch_X in minibatches:
+            for step, minibatch_X in enumerate(minibatches):
                 train_step(net, optimizer, minibatch_X)
+
+        print(np.log10(cost_store[-1]))

@@ -164,9 +164,11 @@ def main():
     path_wd = '.'
     num_agents = A = 6 
     num_episodes = 5000
-    len_episodes = 10240
+    # len_episodes = 10240
+    len_episodes = 200
     epochs_per_episode = 20
-    minibatch_size = 512
+    # minibatch_size = 512
+    minibatch_size = 100
     num_minibatches = int(len_episodes / minibatch_size)
     lr = 1e-5 
     num_input_nodes = 8 + 4 * A  
