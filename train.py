@@ -2,8 +2,9 @@ import os
 from datetime import datetime
 import tensorflow as tf
 import numpy as np
+import math
 
-tf.config.run_functions_eagerly(True)
+# tf.config.run_functions_eagerly(True)
 
 def train(
     A, seed, lr, optimizer_name, num_input_nodes,
@@ -35,9 +36,31 @@ def train(
     eps = 1e-5
     #---------------
 
-    #-----MODEL-----
+    #----OPT-----
+    if optimizer_name == 'adam':
+        optimizer = tf.keras.optimizers.legacy.Adam(learning_rate=lr)
+    else:
+        raise NotImplementedError
+    #------------
 
-    def cost(X, net, sim_mode = False):
+    #----NET-----
+    num_hidden_layer = len(num_hidden_nodes)
+
+    # initializer = tf.keras.initializers.RandomUniform(minval=-0.05, maxval=0.05, seed=None)
+    initializer = tf.keras.initializers.GlorotNormal()
+
+    inputs = tf.keras.Input(shape=(A * 4 + 8,))
+    hidden1 = tf.keras.layers.Dense(num_hidden_nodes[0], activation='relu', kernel_initializer=initializer, bias_initializer=initializer)(inputs)
+    hidden2 = tf.keras.layers.Dense(num_hidden_nodes[1], activation='relu', kernel_initializer=initializer, bias_initializer=initializer)(hidden1)
+    outputs = tf.keras.layers.Dense(A-1, kernel_initializer=initializer, bias_initializer=initializer, activation='softplus')(hidden2)
+
+    net = tf.keras.Model(inputs=inputs, outputs=outputs)
+    net.build(input_shape=(None, A * 4 + 8))
+    #------------
+
+    #-----MODEL-----
+    @tf.function
+    def get_next_policies(X):
 
         def firm(K, eta, alpha, delta):
             L = tf.ones_like(K)
@@ -79,9 +102,158 @@ def train(
         c_orig = inc - a_all
         c = tf.maximum(c_orig, tf.ones_like(c_orig) * eps)
 
-        if not(sim_mode):
-            print(tf.reduce_max(inc))
-            print(tf.reduce_max(a))
+        # if not(sim_mode):
+        #     print(tf.reduce_max(inc))
+        #     print(tf.reduce_max(a))
+
+        k_prime = tf.concat([tf.zeros([m, 1]), a], axis=1)
+
+        K_prime_orig = tf.reduce_sum(k_prime, axis=1, keepdims=True)
+        K_prime = tf.maximum(K_prime_orig, tf.ones_like(K_prime_orig) * eps)
+
+        l_prime = tf.tile(labor_endow, [m, 1])
+        L_prime = tf.ones_like(K_prime)
+
+        # SHOCK 1
+        z_prime_1 = 0 * tf.ones_like(z)
+
+        tfp_prime_1, depr_prime_1 = shocks(z_prime_1, eta, delta)
+
+        r_prime_1, w_prime_1, Y_prime_1 = firm(K_prime, tfp_prime_1, alpha, depr_prime_1)
+        R_prime_1 = r_prime_1 * tf.ones([1, A])
+        W_prime_1 = w_prime_1 * tf.ones([1, A])
+
+        fw_prime_1, linc_prime_1, inc_prime_1 = wealth(k_prime, R_prime_1, l_prime, W_prime_1)
+
+        x_prime_1 = tf.concat([tf.expand_dims(z_prime_1, -1),
+                               tfp_prime_1,
+                               depr_prime_1,
+                               K_prime,
+                               L_prime,
+                               r_prime_1,
+                               w_prime_1,
+                               Y_prime_1,
+                               k_prime,
+                               fw_prime_1,
+                               linc_prime_1,
+                               inc_prime_1], axis=1)
+
+        # SHOCK 2
+        z_prime_2 = 1 * tf.ones_like(z)
+
+        tfp_prime_2, depr_prime_2 = shocks(z_prime_2, eta, delta)
+
+        r_prime_2, w_prime_2, Y_prime_2 = firm(K_prime, tfp_prime_2, alpha, depr_prime_2)
+        R_prime_2 = r_prime_2 * tf.ones([1, A])
+        W_prime_2 = w_prime_2 * tf.ones([1, A])
+
+        fw_prime_2, linc_prime_2, inc_prime_2 = wealth(k_prime, R_prime_2, l_prime, W_prime_2)
+
+        x_prime_2 = tf.concat([tf.expand_dims(z_prime_2, -1),
+                               tfp_prime_2,
+                               depr_prime_2,
+                               K_prime,
+                               L_prime,
+                               r_prime_2,
+                               w_prime_2,
+                               Y_prime_2,
+                               k_prime,
+                               fw_prime_2,
+                               linc_prime_2,
+                               inc_prime_2], axis=1)
+
+        # SHOCK 3
+        z_prime_3 = 2 * tf.ones_like(z)
+
+        tfp_prime_3, depr_prime_3 = shocks(z_prime_3, eta, delta)
+
+        r_prime_3, w_prime_3, Y_prime_3 = firm(K_prime, tfp_prime_3, alpha, depr_prime_3)
+        R_prime_3 = r_prime_3 * tf.ones([1, A])
+        W_prime_3 = w_prime_3 * tf.ones([1, A])
+
+        fw_prime_3, linc_prime_3, inc_prime_3 = wealth(k_prime, R_prime_3, l_prime, W_prime_3)
+
+        x_prime_3 = tf.concat([tf.expand_dims(z_prime_3, -1),
+                               tfp_prime_3,
+                               depr_prime_3,
+                               K_prime,
+                               L_prime,
+                               r_prime_3,
+                               w_prime_3,
+                               Y_prime_3,
+                               k_prime,
+                               fw_prime_3,
+                               linc_prime_3,
+                               inc_prime_3], axis=1)
+
+        # SHOCK 4
+        z_prime_4 = 3 * tf.ones_like(z)
+
+        tfp_prime_4, depr_prime_4 = shocks(z_prime_4, eta, delta)
+
+        r_prime_4, w_prime_4, Y_prime_4 = firm(K_prime, tfp_prime_4, alpha, depr_prime_4)
+        R_prime_4 = r_prime_4 * tf.ones([1, A])
+        W_prime_4 = w_prime_4 * tf.ones([1, A])
+
+        fw_prime_4, linc_prime_4, inc_prime_4 = wealth(k_prime, R_prime_4, l_prime, W_prime_4)
+
+        x_prime_4 = tf.concat([tf.expand_dims(z_prime_4, -1),
+                               tfp_prime_4,
+                               depr_prime_4,
+                               K_prime,
+                               L_prime,
+                               r_prime_4,
+                               w_prime_4,
+                               Y_prime_4,
+                               k_prime,
+                               fw_prime_4,
+                               linc_prime_4,
+                               inc_prime_4], axis=1)
+
+        return x_prime_1, x_prime_2, x_prime_3, x_prime_4
+
+    @tf.function
+    def cost(X):
+
+        def firm(K, eta, alpha, delta):
+            L = tf.ones_like(K)
+            r = alpha * eta * K**(alpha - 1) * L**(1 - alpha) + (1 - delta)
+            w = (1 - alpha) * eta * K**alpha * L**(-alpha)
+            Y = eta * K**alpha * L**(1 - alpha) + (1 - delta) * K
+            return r, w, Y
+
+        def shocks(z, eta, delta):
+            tfp = tf.gather(eta, tf.cast(z, tf.int32))
+            depreciation = tf.gather(delta, tf.cast(z, tf.int32))
+            return tfp, depreciation
+
+        def wealth(k, R, l, W):
+            fin_wealth = k * R
+            lab_wealth = l * W
+            tot_income = tf.add(fin_wealth, lab_wealth)
+            return fin_wealth, lab_wealth, tot_income
+
+        m = tf.shape(X)[0]
+        X = tf.cast(X, dtype=tf.float32)
+
+        z = X[:, 0] 
+        tfp = X[:, 1]
+        depr = X[:, 2]
+        K = X[:, 3]
+        L = X[:, 4]
+        r = X[:, 5]
+        w = X[:, 6]
+        Y = X[:, 7]
+        k = X[:, 8 : 8 + A] 
+        fw = X[:, 8 + A : 8 + 2 * A] 
+        linc = X[:, 8 + 2 * A : 8 + 3 * A] 
+        inc = X[:, 8 + 3 * A : 8 + 4 * A] 
+
+        a = net(X)
+        a_all = tf.concat([a, tf.zeros([m, 1])], axis = 1)
+
+        c_orig = inc - a_all
+        c = tf.maximum(c_orig, tf.ones_like(c_orig) * eps)
 
         k_prime = tf.concat([tf.zeros([m, 1]), a], axis=1)
 
@@ -211,82 +383,52 @@ def train(
         c_orig_prime_4 = inc_prime_4 - a_prime_all_4
         c_prime_4 = tf.maximum(c_orig_prime_4, tf.ones_like(c_orig_prime_4) * eps)
 
-        if not(sim_mode):
+        pi_trans_to1 = p_transition * tf.ones((m, A-1))
+        pi_trans_to2 = p_transition * tf.ones((m, A-1))
+        pi_trans_to3 = p_transition * tf.ones((m, A-1))
+        pi_trans_to4 = p_transition * tf.ones((m, A-1))
 
-            pi_trans_to1 = p_transition * tf.ones((m, A-1))
-            pi_trans_to2 = p_transition * tf.ones((m, A-1))
-            pi_trans_to3 = p_transition * tf.ones((m, A-1))
-            pi_trans_to4 = p_transition * tf.ones((m, A-1))
-
-            print(tf.reduce_max(c_prime_1))
-            print(tf.reduce_max(c_prime_2))
-            print(tf.reduce_max(c_prime_3))
-            print(tf.reduce_max(c_prime_4))
-
-            opt_euler = - 1 + (
+        opt_euler = - 1 + (
+            (
                 (
-                    (
-                        beta * (
-                            pi_trans_to1 * R_prime_1[:, 0:A-1] * c_prime_1[:, 1:A]**(-gamma) 
-                            + pi_trans_to2 * R_prime_2[:, 0:A-1] * c_prime_2[:, 1:A]**(-gamma) 
-                            + pi_trans_to3 * R_prime_3[:, 0:A-1] * c_prime_3[:, 1:A]**(-gamma) 
-                            + pi_trans_to4 * R_prime_4[:, 0:A-1] * c_prime_4[:, 1:A]**(-gamma)
-                        )
-                    ) ** (-1. / gamma)
-                ) / c[:, 0:A-1]
-            )
+                    beta * (
+                        pi_trans_to1 * R_prime_1[:, 0:A-1] * c_prime_1[:, 1:A]**(-gamma) 
+                        + pi_trans_to2 * R_prime_2[:, 0:A-1] * c_prime_2[:, 1:A]**(-gamma) 
+                        + pi_trans_to3 * R_prime_3[:, 0:A-1] * c_prime_3[:, 1:A]**(-gamma) 
+                        + pi_trans_to4 * R_prime_4[:, 0:A-1] * c_prime_4[:, 1:A]**(-gamma)
+                    )
+                ) ** (-1. / gamma)
+            ) / c[:, 0:A-1]
+        )
 
-            orig_cons = tf.concat([c_orig, c_orig_prime_1, c_orig_prime_2, c_orig_prime_3, c_orig_prime_4], axis=1)
-            opt_punish_cons = (1./eps) * tf.maximum(-1 * orig_cons, tf.zeros_like(orig_cons))
+        orig_cons = tf.concat([c_orig, c_orig_prime_1, c_orig_prime_2, c_orig_prime_3, c_orig_prime_4], axis=1)
+        opt_punish_cons = (1./eps) * tf.maximum(-1 * orig_cons, tf.zeros_like(orig_cons))
 
-            opt_punish_ktot_prime = (1./eps) * tf.maximum(-K_prime_orig, tf.zeros_like(K_prime_orig))
+        opt_punish_ktot_prime = (1./eps) * tf.maximum(-K_prime_orig, tf.zeros_like(K_prime_orig))
 
-            combined_opt = [opt_euler, opt_punish_cons, opt_punish_ktot_prime]
-            opt_predict = tf.concat(combined_opt, axis=1)
+        combined_opt = [opt_euler, opt_punish_cons, opt_punish_ktot_prime]
+        opt_predict = tf.concat(combined_opt, axis=1)
 
-            opt_correct = tf.zeros_like(opt_predict)
+        opt_correct = tf.zeros_like(opt_predict)
 
-            mse = tf.keras.losses.MeanSquaredError()
+        mse = tf.keras.losses.MeanSquaredError()
 
-            cost = mse(opt_correct, opt_predict)
+        cost = mse(opt_correct, opt_predict)
 
-        else:
-            cost = 0
-            opt_euler = 0
-
-        return cost, opt_euler, x_prime_1, x_prime_2, x_prime_3, x_prime_4
+        return cost, opt_euler
 
     #---------------
 
-    #----OPT-----
-    if optimizer_name == 'adam':
-        optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
-    else:
-        raise NotImplementedError
-    #------------
-
-    #----NET-----
-    num_hidden_layer = len(num_hidden_nodes)
-
-    initializer = tf.keras.initializers.RandomUniform(minval=-0.05, maxval=0.05, seed=None)
-
-    inputs = tf.keras.Input(shape=(A * 4 + 8,))
-    hidden1 = tf.keras.layers.Dense(num_hidden_nodes[0], activation='relu', kernel_initializer=initializer, bias_initializer=initializer)(inputs)
-    hidden2 = tf.keras.layers.Dense(num_hidden_nodes[1], activation='relu', kernel_initializer=initializer, bias_initializer=initializer)(hidden1)
-    outputs = tf.keras.layers.Dense(A-1, kernel_initializer=initializer, bias_initializer=initializer)(hidden2)
-
-    net = tf.keras.Model(inputs=inputs, outputs=outputs)
-    net.build(input_shape=(None, A * 4 + 8))
-    #------------
+    #---------------
 
     #--TRAIN_STEP--
     parameters = net.trainable_weights
 
     @tf.function
-    def train_step(net, optimizer, X):
+    def train_step(X):
         
         with tf.GradientTape() as tape:
-            loss_value = cost(X, net, False)[0]
+            loss_value = cost(X)[0]
         grads = tape.gradient(loss_value, parameters)
         grads = [(tf.clip_by_value(grad, -1.,1.)) for grad in grads]
 
@@ -310,14 +452,16 @@ def train(
         for t in range(1, episode_length):
             z = int(X_old[0,0])
 
+            X_predicts = get_next_policies(X_old)
+
             if rand_num[t-1] <= pi_np[z,0]:
-                X_new = cost(X_old, net, sim_mode=True)[2]
+                X_new = X_predicts[0]
             elif rand_num[t-1] <= pi_np[z,0] + pi_np[z,1]:
-                X_new = cost(X_old, net, sim_mode=True)[3]
+                X_new = X_predicts[1]
             elif rand_num[t-1] <= pi_np[z,0] + pi_np[z,1] + pi_np[z,2]:
-                X_new = cost(X_old, net, sim_mode=True)[4]
+                X_new = X_predicts[2]
             else:
-                X_new = cost(X_old, net, sim_mode=True)[5]
+                X_new = X_predicts[3]
 
             X_episodes[t, :] = X_new
             X_old = X_new
@@ -348,49 +492,53 @@ def train(
     print(f"start time: {time_start}")
 
     if not(False):
+        redraw = True
+        # while redraw:
         X_data_train = np.random.rand(1, num_input_nodes)
         X_data_train[:, 0] = (X_data_train[:, 0] > 0.5)
         X_data_train[:, 1:] = X_data_train[:, 1:] + 0.1
+        # X_test = simulate_episodes(X_data_train, len_episodes, net)
+            # redraw = math.isinf(cost(X_test, net, False)[0])
         assert np.min(np.sum(X_data_train[:, 1:], axis=1, keepdims=True) > 0) == True, 'Starting point has negative aggregate capital (K)!'
         print('Calculated a valid starting point')
 
-    X_episodes = simulate_episodes(X_data_train, len_episodes, net)
-    print(np.log10(cost(X_episodes, net, False)[0]))
-    np.savetxt("log1.txt",X_episodes[:,3:8])
+    # X_episodes = simulate_episodes(X_data_train, len_episodes, net)
+    # print(np.log10(cost(X_episodes, net, False)[0]))
+    # np.savetxt("log1.txt",X_episodes[:,3:8])
 
-    # for episode in range(load_episode, num_episodes):
-    #     print(f"Episode: {episode}")
-    #     X_episodes = simulate_episodes(X_data_train, len_episodes, net)
-    #     X_data_train = X_episodes[-1, :].reshape([1, -1])
-    #     k_dist_mean = np.mean(X_episodes[:, 8 : 8 + A], axis=0)
-    #     k_dist_min = np.min(X_episodes[:, 8 : 8 + A], axis=0)
-    #     k_dist_max = np.max(X_episodes[:, 8 : 8 + A], axis=0)
+    for episode in range(load_episode, num_episodes):
+        print(f"Episode: {episode}")
+        X_episodes = simulate_episodes(X_data_train, len_episodes, net)
+        X_data_train = X_episodes[-1, :].reshape([1, -1])
+        k_dist_mean = np.mean(X_episodes[:, 8 : 8 + A], axis=0)
+        k_dist_min = np.min(X_episodes[:, 8 : 8 + A], axis=0)
+        k_dist_max = np.max(X_episodes[:, 8 : 8 + A], axis=0)
 
-    #     ee_error = np.zeros((1, A-1))
-    #     max_ee = np.zeros((1, A-1))
+        ee_error = np.zeros((1, A-1))
+        max_ee = np.zeros((1, A-1))
 
-    #     for epoch in range(epochs_per_episode):
-    #         print(f"Epoch: {epoch}")
-    #         train_seed += 1
-    #         minibatch_cost = 0
+        for epoch in range(epochs_per_episode):
+            print(f"Epoch: {epoch}")
+            train_seed += 1
+            minibatch_cost = 0
 
-    #         minibatches = create_minibatches(X_episodes, buffer_size, minibatch_size, seed)
+            minibatches = create_minibatches(X_episodes, buffer_size, minibatch_size, seed)
 
-    #         for step, minibatch_X in enumerate(minibatches):
-    #             cost_mini, opt_euler_ = cost(minibatch_X, net)[0:2]
-    #             minibatch_cost += cost_mini / num_batches
+            for step, minibatch_X in enumerate(minibatches):
+                cost_mini, opt_euler_ = cost(minibatch_X)[0:2]
+                minibatch_cost += cost_mini / num_batches
 
-    #             if epoch == 0:
-    #                 opt_euler_ = np.abs(opt_euler_)
-    #                 ee_error += np.mean(opt_euler_, axis=0) / num_batches
-    #                 mb_max_ee = np.max(opt_euler_, axis=0, keepdims=True)
-    #                 max_ee = np.maximum(max_ee, mb_max_ee)
+                if epoch == 0:
+                    opt_euler_ = np.abs(opt_euler_)
+                    ee_error += np.mean(opt_euler_, axis=0) / num_batches
+                    mb_max_ee = np.max(opt_euler_, axis=0, keepdims=True)
+                    max_ee = np.maximum(max_ee, mb_max_ee)
 
-    #         if epoch == 0:
-    #             cost_store.append(minibatch_cost)
-    #             mov_ave_cost_store.append(np.mean(cost_store[-100:]))
+            if epoch == 0:
+                cost_store.append(minibatch_cost)
+                mov_ave_cost_store.append(np.mean(cost_store[-100:]))
 
-    #         for step, minibatch_X in enumerate(minibatches):
-    #             train_step(net, optimizer, minibatch_X)
+            for step, minibatch_X in enumerate(minibatches):
+                train_step(net, optimizer, minibatch_X)
 
-    #     print(np.log10(cost_store[-1]))
+        print(np.log10(cost_store[-1]))
