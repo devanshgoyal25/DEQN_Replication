@@ -154,7 +154,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='TITLE HERE')
     parser.add_argument('--load_episode', type=int, default=0, help='Episode to load weights and starting point from.')
-    parser.add_argument('--seed', type=int, default=1, help='Random seed.')
+    parser.add_argument('--seed', type=int, default=2, help='Random seed.')
     parser.add_argument('--plot_interval', type=int, default=20, help='Interval to plot results.')
     parser.add_argument('--save_interval', type=int, default=100, help='Interval to save model.')
     args = parser.parse_args()

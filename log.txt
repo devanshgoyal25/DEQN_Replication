@@ -1,4 +1,8 @@
 Metal device set to: Apple M1
+
+systemMemory: 16.00 GB
+maxCacheSize: 5.33 GB
+
 Tensorflow Version:  2.12.0
 Namespace(load_episode=0, seed=1, plot_interval=20, save_interval=100)
 ##### input arguments #####
@@ -6,119 +10,22 @@ seed: 1
 working directory: .
 hidden nodes: [100, 50]
 optimizer: adam
-batch_size: 512
+batch_size: 100
 num_episodes: 5000
-len_episodes: 10240
+len_episodes: 200
 epochs_per_episode: 20
 save_interval: 100
 lr: 1e-05
 ###########################
 Plots will be saved into ./output/plots/.
-start time: 2023-05-01 15:18:42.492854
+start time: 2023-05-02 10:03:59.500973
 Calculated a valid starting point
-Start simulating 10240 periods.
-tf.Tensor(
-[[0.         0.82032449 0.10011437 0.40233257 0.24675589 0.19233859
-  0.28626021 0.44556073 0.49676747 0.63881673 0.51919451 0.7852195
-  0.30445225 0.97811744 0.12738759 0.77046751 0.5173048  0.65868983
-  0.24038694 0.29810149 0.90074457 1.06826158 0.41342418 0.79232262
-  0.97638915 0.99460666 0.18504421 0.13905478 0.26983042 0.9781425
-  0.19834683 0.52110763]], shape=(1, 32), dtype=float64)
-
-systemMemory: 16.00 GB
-maxCacheSize: 5.33 GB
-
-Metal device set to: Apple M1
-WARNING:absl:At this time, the v2.11+ optimizer `tf.keras.optimizers.Adam` runs slowly on M1/M2 Macs, please use the legacy Keras optimizer instead, located at `tf.keras.optimizers.legacy.Adam`.
-Tensorflow Version:  2.12.0
-Namespace(load_episode=0, seed=1, plot_interval=20, save_interval=100)
-##### input arguments #####
-seed: 1
-working directory: .
-hidden nodes: [100, 50]
-optimizer: adam
-batch_size: 512
-num_episodes: 5000
-len_episodes: 10240
-epochs_per_episode: 20
-save_interval: 100
-lr: 1e-05
-###########################
-Plots will be saved into ./output/plots/.
-start time: 2023-05-01 15:21:29.965062
-Calculated a valid starting point
-Start simulating 10240 periods.
-tf.Tensor(
-[[0.         0.82032449 0.10011437 0.40233257 0.24675589 0.19233859
-  0.28626021 0.44556073 0.49676747 0.63881673 0.51919451 0.7852195
-  0.30445225 0.97811744 0.12738759 0.77046751 0.5173048  0.65868983
-  0.24038694 0.29810149 0.90074457 1.06826158 0.41342418 0.79232262
-  0.97638915 0.99460666 0.18504421 0.13905478 0.26983042 0.9781425
-  0.19834683 0.52110763]], shape=(1, 32), dtype=float64)
-
-systemMemory: 16.00 GB
-maxCacheSize: 5.33 GB
-
-Traceback (most recent call last):
-  File "/Users/seross/Projects/DeepEquilibriumNets/main.py", line 218, in <module>
-    main()
-  File "/Users/seross/Projects/DeepEquilibriumNets/main.py", line 210, in main
-    train(
-  File "/Users/seross/Projects/DeepEquilibriumNets/train.py", line 270, in train
-    X_episodes = simulate_episodes(X_data_train, len_episodes, net)
-  File "/Users/seross/Projects/DeepEquilibriumNets/train.py", line 223, in simulate_episodes
-    current_policy = get_current_policy(X_old, net)
-  File "/Users/seross/Projects/DeepEquilibriumNets/train.py", line 76, in get_current_policy
-    c_orig = inc - a_all
-  File "/Users/seross/.pyenv/versions/3.9.5/lib/python3.9/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
-    raise e.with_traceback(filtered_tb) from None
-  File "/Users/seross/.pyenv/versions/3.9.5/lib/python3.9/site-packages/tensorflow/python/framework/ops.py", line 7262, in raise_from_not_ok_status
-    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
-tensorflow.python.framework.errors_impl.InvalidArgumentError: cannot compute Sub as input #1(zero-based) was expected to be a double tensor but is a float tensor [Op:Sub]
-Metal device set to: Apple M1
-WARNING:absl:At this time, the v2.11+ optimizer `tf.keras.optimizers.Adam` runs slowly on M1/M2 Macs, please use the legacy Keras optimizer instead, located at `tf.keras.optimizers.legacy.Adam`.
-Tensorflow Version:  2.12.0
-Namespace(load_episode=0, seed=1, plot_interval=20, save_interval=100)
-##### input arguments #####
-seed: 1
-working directory: .
-hidden nodes: [100, 50]
-optimizer: adam
-batch_size: 512
-num_episodes: 5000
-len_episodes: 10240
-epochs_per_episode: 20
-save_interval: 100
-lr: 1e-05
-###########################
-Plots will be saved into ./output/plots/.
-start time: 2023-05-01 15:21:46.803739
-Calculated a valid starting point
-Start simulating 10240 periods.
-tf.Tensor(
-[[0.         0.82032449 0.10011437 0.40233257 0.24675589 0.19233859
-  0.28626021 0.44556073 0.49676747 0.63881673 0.51919451 0.7852195
-  0.30445225 0.97811744 0.12738759 0.77046751 0.5173048  0.65868983
-  0.24038694 0.29810149 0.90074457 1.06826158 0.41342418 0.79232262
-  0.97638915 0.99460666 0.18504421 0.13905478 0.26983042 0.9781425
-  0.19834683 0.52110763]], shape=(1, 32), dtype=float64)
-
-systemMemory: 16.00 GB
-maxCacheSize: 5.33 GB
-
-Traceback (most recent call last):
-  File "/Users/seross/Projects/DeepEquilibriumNets/main.py", line 218, in <module>
-    main()
-  File "/Users/seross/Projects/DeepEquilibriumNets/main.py", line 210, in main
-    train(
-  File "/Users/seross/Projects/DeepEquilibriumNets/train.py", line 270, in train
-    X_episodes = simulate_episodes(X_data_train, len_episodes, net)
-  File "/Users/seross/Projects/DeepEquilibriumNets/train.py", line 223, in simulate_episodes
-    current_policy = get_current_policy(X_old, net)
-  File "/Users/seross/Projects/DeepEquilibriumNets/train.py", line 76, in get_current_policy
-    c_orig = inc - a_all
-  File "/Users/seross/.pyenv/versions/3.9.5/lib/python3.9/site-packages/tensorflow/python/util/traceback_utils.py", line 153, in error_handler
-    raise e.with_traceback(filtered_tb) from None
-  File "/Users/seross/.pyenv/versions/3.9.5/lib/python3.9/site-packages/tensorflow/python/framework/ops.py", line 7262, in raise_from_not_ok_status
-    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
-tensorflow.python.framework.errors_impl.InvalidArgumentError: cannot compute Sub as input #1(zero-based) was expected to be a double tensor but is a float tensor [Op:Sub]
+Start simulating 200 periods.
+Finished simulation. Time for simulation: 0:00:05.454000.
+tf.Tensor(inf, shape=(), dtype=float32)
+tf.Tensor(4.3056976e+36, shape=(), dtype=float32)
+tf.Tensor(1.3245106e+37, shape=(), dtype=float32)
+tf.Tensor(1.4638507e+37, shape=(), dtype=float32)
+tf.Tensor(1.4632632e+37, shape=(), dtype=float32)
+tf.Tensor(1.4632632e+37, shape=(), dtype=float32)
+inf
