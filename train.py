@@ -56,10 +56,13 @@ def train(
 
     net = tf.keras.Model(inputs=inputs, outputs=outputs)
     net.build(input_shape=(None, A * 4 + 8))
+
+    tb_callback = tf.keras.callbacks.TensorBoard("./log/")
+    tb_callback.set_model(net)
     #------------
 
     #-----MODEL-----
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
     def get_next_policies(X):
 
         def firm(K, eta, alpha, delta):
@@ -212,7 +215,7 @@ def train(
 
         return x_prime_1, x_prime_2, x_prime_3, x_prime_4
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
     def cost(X):
 
         def firm(K, eta, alpha, delta):
@@ -424,7 +427,7 @@ def train(
     #--TRAIN_STEP--
     parameters = net.trainable_weights
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
     def train_step(X):
         
         with tf.GradientTape() as tape:
@@ -445,7 +448,7 @@ def train(
 
         X_episodes = np.zeros([episode_length, dim_state])
         X_episodes[0, :] = X_start
-        X_old = tf.convert_to_tensor(X_start)
+        X_old = tf.convert_to_tensor(X_start, dtype=tf.float32)
 
         rand_num = np.random.rand(episode_length, 1)
 
@@ -516,16 +519,18 @@ def train(
 
         ee_error = np.zeros((1, A-1))
         max_ee = np.zeros((1, A-1))
+            
+        print(f"Start training for {epochs_per_episode} epochs.")
 
         for epoch in range(epochs_per_episode):
-            print(f"Epoch: {epoch}")
+            # print(f"Epoch: {epoch}")
             train_seed += 1
             minibatch_cost = 0
 
             minibatches = create_minibatches(X_episodes, buffer_size, minibatch_size, seed)
 
             for step, minibatch_X in enumerate(minibatches):
-                cost_mini, opt_euler_ = cost(minibatch_X)[0:2]
+                cost_mini, opt_euler_ = cost(tf.cast(minibatch_X, dtype=tf.float32))
                 minibatch_cost += cost_mini / num_batches
 
                 if epoch == 0:
@@ -539,6 +544,9 @@ def train(
                 mov_ave_cost_store.append(np.mean(cost_store[-100:]))
 
             for step, minibatch_X in enumerate(minibatches):
-                train_step(net, optimizer, minibatch_X)
+                train_step(tf.cast(minibatch_X, dtype=tf.float32))
 
-        print(np.log10(cost_store[-1]))
+        if tf.config.list_physical_devices('GPU'):
+            print(tf.config.experimental.get_memory_info('GPU:0'))
+
+        print(f"Cost: {np.log10(cost_store[-1])}")
