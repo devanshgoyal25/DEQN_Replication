@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 import tensorflow as tf
 import numpy as np
+import matplotlib.pyplot as plt
 import math
 
 # tf.config.run_functions_eagerly(True)
@@ -25,7 +26,7 @@ def train(
     pi = tf.constant(pi_np, dtype=tf.float32)
 
     labor_endow_np = np.zeros((1, A))
-    labor_endow_np[:, 0] = 1.0 
+    labor_endow_np[:, 0] = 1.0
     labor_endow = tf.constant(labor_endow_np, dtype=tf.float32)
 
     alpha = tf.constant(0.3)
@@ -59,10 +60,11 @@ def train(
 
     tb_callback = tf.keras.callbacks.TensorBoard("./log/")
     tb_callback.set_model(net)
+
     #------------
 
     #-----MODEL-----
-    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
+    @tf.function
     def get_next_policies(X):
 
         def firm(K, eta, alpha, delta):
@@ -86,7 +88,7 @@ def train(
         m = tf.shape(X)[0]
         X = tf.cast(X, dtype=tf.float32)
 
-        z = X[:, 0] 
+        z = X[:, 0]
         tfp = X[:, 1]
         depr = X[:, 2]
         K = X[:, 3]
@@ -94,10 +96,10 @@ def train(
         r = X[:, 5]
         w = X[:, 6]
         Y = X[:, 7]
-        k = X[:, 8 : 8 + A] 
-        fw = X[:, 8 + A : 8 + 2 * A] 
-        linc = X[:, 8 + 2 * A : 8 + 3 * A] 
-        inc = X[:, 8 + 3 * A : 8 + 4 * A] 
+        k = X[:, 8 : 8 + A]
+        fw = X[:, 8 + A : 8 + 2 * A]
+        linc = X[:, 8 + 2 * A : 8 + 3 * A]
+        inc = X[:, 8 + 3 * A : 8 + 4 * A]
 
         a = net(X)
         a_all = tf.concat([a, tf.zeros([m, 1])], axis = 1)
@@ -215,7 +217,7 @@ def train(
 
         return x_prime_1, x_prime_2, x_prime_3, x_prime_4
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
+    @tf.function
     def cost(X):
 
         def firm(K, eta, alpha, delta):
@@ -239,7 +241,7 @@ def train(
         m = tf.shape(X)[0]
         X = tf.cast(X, dtype=tf.float32)
 
-        z = X[:, 0] 
+        z = X[:, 0]
         tfp = X[:, 1]
         depr = X[:, 2]
         K = X[:, 3]
@@ -247,10 +249,10 @@ def train(
         r = X[:, 5]
         w = X[:, 6]
         Y = X[:, 7]
-        k = X[:, 8 : 8 + A] 
-        fw = X[:, 8 + A : 8 + 2 * A] 
-        linc = X[:, 8 + 2 * A : 8 + 3 * A] 
-        inc = X[:, 8 + 3 * A : 8 + 4 * A] 
+        k = X[:, 8 : 8 + A]
+        fw = X[:, 8 + A : 8 + 2 * A]
+        linc = X[:, 8 + 2 * A : 8 + 3 * A]
+        inc = X[:, 8 + 3 * A : 8 + 4 * A]
 
         a = net(X)
         a_all = tf.concat([a, tf.zeros([m, 1])], axis = 1)
@@ -395,9 +397,9 @@ def train(
             (
                 (
                     beta * (
-                        pi_trans_to1 * R_prime_1[:, 0:A-1] * c_prime_1[:, 1:A]**(-gamma) 
-                        + pi_trans_to2 * R_prime_2[:, 0:A-1] * c_prime_2[:, 1:A]**(-gamma) 
-                        + pi_trans_to3 * R_prime_3[:, 0:A-1] * c_prime_3[:, 1:A]**(-gamma) 
+                        pi_trans_to1 * R_prime_1[:, 0:A-1] * c_prime_1[:, 1:A]**(-gamma)
+                        + pi_trans_to2 * R_prime_2[:, 0:A-1] * c_prime_2[:, 1:A]**(-gamma)
+                        + pi_trans_to3 * R_prime_3[:, 0:A-1] * c_prime_3[:, 1:A]**(-gamma)
                         + pi_trans_to4 * R_prime_4[:, 0:A-1] * c_prime_4[:, 1:A]**(-gamma)
                     )
                 ) ** (-1. / gamma)
@@ -427,9 +429,9 @@ def train(
     #--TRAIN_STEP--
     parameters = net.trainable_weights
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
+    @tf.function
     def train_step(X):
-        
+
         with tf.GradientTape() as tape:
             loss_value = cost(X)[0]
         grads = tape.gradient(loss_value, parameters)
@@ -448,7 +450,7 @@ def train(
 
         X_episodes = np.zeros([episode_length, dim_state])
         X_episodes[0, :] = X_start
-        X_old = tf.convert_to_tensor(X_start, dtype=tf.float32)
+        X_old = tf.convert_to_tensor(X_start)
 
         rand_num = np.random.rand(episode_length, 1)
 
@@ -475,11 +477,21 @@ def train(
 
         return X_episodes
 
+    #-----Calculating Analytical Solution -----
+    @tf.function(reduce_retracing=True)
+    def get_analytic(X):
+        inc = X[:, 8 + 3 * A : 8 + 4 * A]
+        beta_vec = beta_np * (1 - beta_np ** (A - 1 - np.arange(A - 1))) / (1 - beta_np ** (A - np.arange(A - 1)))
+        beta_vec = tf.constant(np.expand_dims(beta_vec, 0), dtype=tf.float64)
+        a_analytic = inc[:, : -1] * beta_vec
+        return a_analytic
+
     def create_minibatches(training_data_X, buffer_size, batch_size, seed):
         train_dataset = tf.data.Dataset.from_tensor_slices(training_data_X)
         train_dataset = train_dataset.shuffle(buffer_size=buffer_size, seed=seed).batch(batch_size)
         return train_dataset
     #--------------
+
 
     #---TRAINING---
     train_seed = 0
@@ -509,6 +521,11 @@ def train(
     # print(np.log10(cost(X_episodes, net, False)[0]))
     # np.savetxt("log1.txt",X_episodes[:,3:8])
 
+    plt.rcParams.update({'font.size': 12})
+    plt.rc('xtick', labelsize='small')
+    plt.rc('ytick', labelsize='small')
+    std_figsize = (4, 4)
+
     for episode in range(load_episode, num_episodes):
         print(f"Episode: {episode}")
         X_episodes = simulate_episodes(X_data_train, len_episodes, net)
@@ -519,18 +536,16 @@ def train(
 
         ee_error = np.zeros((1, A-1))
         max_ee = np.zeros((1, A-1))
-            
-        print(f"Start training for {epochs_per_episode} epochs.")
 
         for epoch in range(epochs_per_episode):
-            # print(f"Epoch: {epoch}")
+            print(f"Epoch: {epoch}")
             train_seed += 1
             minibatch_cost = 0
 
             minibatches = create_minibatches(X_episodes, buffer_size, minibatch_size, seed)
 
             for step, minibatch_X in enumerate(minibatches):
-                cost_mini, opt_euler_ = cost(tf.cast(minibatch_X, dtype=tf.float32))
+                cost_mini, opt_euler_ = cost(minibatch_X)[0:2]
                 minibatch_cost += cost_mini / num_batches
 
                 if epoch == 0:
@@ -544,9 +559,94 @@ def train(
                 mov_ave_cost_store.append(np.mean(cost_store[-100:]))
 
             for step, minibatch_X in enumerate(minibatches):
-                train_step(tf.cast(minibatch_X, dtype=tf.float32))
+                train_step(minibatch_X)
 
-        if tf.config.list_physical_devices('GPU'):
-            print(tf.config.experimental.get_memory_info('GPU:0'))
+        print(np.log10(cost_store[-1]))
 
-        print(f"Cost: {np.log10(cost_store[-1])}")
+        if episode % 10 == 0:
+            # Plot the loss function
+            plt.figure(figsize=std_figsize)
+            plt.clf()
+            ax = plt.subplot(1, 1, 1)
+            ax.plot(np.log10(cost_store), 'k-', label='cost')
+            ax.plot(np.log10(mov_ave_cost_store), 'r--', label='moving average')
+            ax.set_xlabel('Episodes')
+            ax.set_ylabel('Cost [log10]')
+            ax.legend(loc='upper right')
+            plt.savefig('./output/plots/loss_ep_%d.pdf' % episode, bbox_inches='tight')
+            plt.close()
+
+            # Plot the relative errors in the Euler equation
+            plt.figure(figsize=std_figsize)
+            plt.clf()
+            ax = plt.subplot(1, 1, 1)
+            ax.plot(ages, np.log10(ee_error).ravel(), 'k-', label='mean')
+            ax.plot(ages, np.log10(max_ee).ravel(), 'k--', label='max')
+            ax.set_xlabel('Age')
+            ax.set_ylabel('Rel EE [log10]')
+            ax.legend()
+            plt.savefig('./output/plots/relee_ep_%d.pdf' % episode, bbox_inches='tight')
+            plt.close()
+
+            # Plot the capital distribution
+            plt.figure(figsize=std_figsize)
+            plt.clf()
+            ax = plt.subplot(1, 1, 1)
+            ax.plot(all_ages, k_dist_mean, 'k-', label='mean')
+            ax.plot(all_ages, k_dist_min, 'k-.', label='min')
+            ax.plot(all_ages, k_dist_max, 'k--', label='max')
+            ax.set_xlabel('Age')
+            ax.set_ylabel('Capital (k)')
+            ax.legend()
+            ax.set_xticks(all_ages)
+            plt.savefig('./output/plots/distk_ep_%d.pdf' % episode, bbox_inches='tight')
+            plt.close()
+
+            # =======================================================================================
+            # Sample 50 states and compare the neural network's prediction to the analytical solution
+            pick = np.random.randint(len_episodes, size=50)
+            random_states = X_episodes[pick, :]
+
+            # Sort the states by the exogenous shock
+            random_states_1 = random_states[random_states[:, 0] == 0]
+            random_states_2 = random_states[random_states[:, 0] == 1]
+            random_states_3 = random_states[random_states[:, 0] == 2]
+            random_states_4 = random_states[random_states[:, 0] == 3]
+
+            # Get corresponding capital distribution for plots
+            random_k_1 = random_states_1[:, 8: 8 + A]
+            random_k_2 = random_states_2[:, 8: 8 + A]
+            random_k_3 = random_states_3[:, 8: 8 + A]
+            random_k_4 = random_states_4[:, 8: 8 + A]
+
+            # Generate a prediction using the neural network
+            nn_pred_1 = net(random_states_1)
+            nn_pred_2 = net(random_states_2)
+            nn_pred_3 = net(random_states_3)
+            nn_pred_4 = net(random_states_4)
+
+            # Calculate the analytical solution
+            true_pol_1 = get_analytic(random_states_1)
+            true_pol_2 = get_analytic(random_states_2)
+            true_pol_3 = get_analytic(random_states_3)
+            true_pol_4 = get_analytic(random_states_4)
+
+            for i in range(A - 1):
+                plt.figure(figsize=std_figsize)
+                ax = plt.subplot(1, 1, 1)
+                # Plot the true solution with a circle
+                ax.plot(random_k_1[:, i], true_pol_1[:, i], 'ro', mfc='none', alpha=0.5, markersize=6, label='analytic')
+                ax.plot(random_k_2[:, i], true_pol_2[:, i], 'bo', mfc='none', alpha=0.5, markersize=6)
+                ax.plot(random_k_3[:, i], true_pol_3[:, i], 'go', mfc='none', alpha=0.5, markersize=6)
+                ax.plot(random_k_4[:, i], true_pol_4[:, i], 'yo', mfc='none', alpha=0.5, markersize=6)
+                # Plot the prediction of the neural net
+                ax.plot(random_k_1[:, i], nn_pred_1[:, i], 'r*', markersize=2, label='DEQN')
+                ax.plot(random_k_2[:, i], nn_pred_2[:, i], 'b*', markersize=2)
+                ax.plot(random_k_3[:, i], nn_pred_3[:, i], 'g*', markersize=2)
+                ax.plot(random_k_4[:, i], nn_pred_4[:, i], 'y*', markersize=2)
+                ax.set_title('Agent {}'.format(i + 1))
+                ax.set_xlabel(r'$k_t$')
+                ax.set_ylabel(r'$a_t$')
+                ax.legend()
+                plt.savefig('./output/plots/policy_agent_%d_ep_%d.pdf' % (i + 1, episode), bbox_inches='tight')
+                plt.close()
