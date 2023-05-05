@@ -3,7 +3,7 @@ from datetime import datetime
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
-import math
+import pickle as pkl
 
 # tf.config.run_functions_eagerly(True)
 
@@ -11,7 +11,7 @@ def train(
     A, seed, lr, optimizer_name, num_input_nodes,
     num_hidden_nodes, num_output_nodes, minibatch_size,
     num_episodes, len_episodes, epochs_per_episode, path_wd,
-    save_interval, load_episode
+    save_interval, plot_interval, load_episode=0
     ):
 
     #----PARAMS-----
@@ -35,6 +35,8 @@ def train(
     gamma = tf.constant(1.0, dtype=tf.float32)
 
     eps = 1e-5
+
+    model_history_filename = './output/models/model_history.pkl'
     #---------------
 
     #----OPT-----
@@ -55,16 +57,22 @@ def train(
     hidden2 = tf.keras.layers.Dense(num_hidden_nodes[1], activation='relu', kernel_initializer=initializer, bias_initializer=initializer)(hidden1)
     outputs = tf.keras.layers.Dense(A-1, kernel_initializer=initializer, bias_initializer=initializer, activation='softplus')(hidden2)
 
-    net = tf.keras.Model(inputs=inputs, outputs=outputs)
-    net.build(input_shape=(None, A * 4 + 8))
+    if load_episode==0:
+        net = tf.keras.Model(inputs=inputs, outputs=outputs)
+        net.build(input_shape=(None, A * 4 + 8))
+        model_history = {}
+        os.makedirs(os.path.dirname(model_history_filename), exist_ok=True)
+    else:
+        with open(model_history_filename, 'rb') as handle:
+            net = pkl.load(handle)[load_episode]
 
-    tb_callback = tf.keras.callbacks.TensorBoard("./log/")
-    tb_callback.set_model(net)
+    # tb_callback = tf.keras.callbacks.TensorBoard("./log/")
+    # tb_callback.set_model(net)
 
     #------------
 
     #-----MODEL-----
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
     def get_next_policies(X):
 
         def firm(K, eta, alpha, delta):
@@ -217,7 +225,7 @@ def train(
 
         return x_prime_1, x_prime_2, x_prime_3, x_prime_4
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
     def cost(X):
 
         def firm(K, eta, alpha, delta):
@@ -429,7 +437,7 @@ def train(
     #--TRAIN_STEP--
     parameters = net.trainable_weights
 
-    @tf.function
+    @tf.function(input_signature=[tf.TensorSpec(shape=(None, A * 4 + 8), dtype=tf.float32)])
     def train_step(X):
 
         with tf.GradientTape() as tape:
@@ -450,7 +458,7 @@ def train(
 
         X_episodes = np.zeros([episode_length, dim_state])
         X_episodes[0, :] = X_start
-        X_old = tf.convert_to_tensor(X_start)
+        X_old = tf.convert_to_tensor(X_start, dtype=tf.float32)
 
         rand_num = np.random.rand(episode_length, 1)
 
@@ -492,7 +500,6 @@ def train(
         return train_dataset
     #--------------
 
-
     #---TRAINING---
     train_seed = 0
     buffer_size = len_episodes
@@ -527,7 +534,7 @@ def train(
     std_figsize = (4, 4)
 
     for episode in range(load_episode, num_episodes):
-        print(f"Episode: {episode}")
+        print(f"Start training for {epochs_per_episode} epochs.")
         X_episodes = simulate_episodes(X_data_train, len_episodes, net)
         X_data_train = X_episodes[-1, :].reshape([1, -1])
         k_dist_mean = np.mean(X_episodes[:, 8 : 8 + A], axis=0)
@@ -538,14 +545,13 @@ def train(
         max_ee = np.zeros((1, A-1))
 
         for epoch in range(epochs_per_episode):
-            print(f"Epoch: {epoch}")
             train_seed += 1
             minibatch_cost = 0
 
             minibatches = create_minibatches(X_episodes, buffer_size, minibatch_size, seed)
 
             for step, minibatch_X in enumerate(minibatches):
-                cost_mini, opt_euler_ = cost(minibatch_X)[0:2]
+                cost_mini, opt_euler_ = cost(tf.cast(minibatch_X, dtype=tf.float32))
                 minibatch_cost += cost_mini / num_batches
 
                 if epoch == 0:
@@ -559,11 +565,28 @@ def train(
                 mov_ave_cost_store.append(np.mean(cost_store[-100:]))
 
             for step, minibatch_X in enumerate(minibatches):
-                train_step(minibatch_X)
+                train_step(tf.cast(minibatch_X, dtype=tf.float32))
 
-        print(np.log10(cost_store[-1]))
 
-        if episode % 10 == 0:
+
+            print(f"Epoch: {epoch} \t Cost: {np.log10(cost_store[-1])}")
+
+        print(f"Episode {episode} done.")
+        print(f"Episode: {episode} \t Cost: {np.log10(cost_store[-1])}")
+
+        #Saving the neural network after a specified number of episodes. Default is 20
+        if episode % save_interval == 0:
+            if load_episode ==0:
+                model_history[episode] = net
+            else:
+                with open(model_history_filename, 'rb') as handle:
+                    model_history = pkl.load(handle)
+                model_history[episode] = net
+
+            with open(model_history_filename, 'wb') as handle:
+                pkl.dump(model_history, handle)
+
+        if episode % plot_interval == 0:
             # Plot the loss function
             plt.figure(figsize=std_figsize)
             plt.clf()

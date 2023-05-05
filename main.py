@@ -28,14 +28,14 @@ def main():
     parser.add_argument('--load_episode', type=int, default=0, help='Episode to load weights and starting point from.')
     parser.add_argument('--seed', type=int, default=2, help='Random seed.')
     parser.add_argument('--plot_interval', type=int, default=20, help='Interval to plot results.')
-    parser.add_argument('--save_interval', type=int, default=100, help='Interval to save model.')
+    parser.add_argument('--save_interval', type=int, default=20, help='Interval to save model.')
     args = parser.parse_args()
     print(args)
 
     print('##### input arguments #####')
     path_wd = '.'
     num_agents = A = 6 
-    num_episodes = 5000
+    num_episodes = 1000
     len_episodes = 10240
     # len_episodes = 200
     epochs_per_episode = 20
@@ -82,10 +82,10 @@ def main():
     print('Plots will be saved into ./output/plots/.')
 
     train(
-        A, args.seed, lr, optimizer_name, num_input_nodes,
-        num_hidden_nodes, num_output_nodes, minibatch_size,
-        num_episodes, len_episodes, epochs_per_episode, path_wd,
-        args.save_interval, args.load_episode
+        A=A, seed=args.seed, lr=lr, optimizer_name=optimizer_name, num_input_nodes=num_input_nodes,
+        num_hidden_nodes=num_hidden_nodes, num_output_nodes=num_output_nodes, minibatch_size=minibatch_size,
+        num_episodes=num_episodes, len_episodes=len_episodes, epochs_per_episode=epochs_per_episode, path_wd=path_wd,
+        save_interval=args.save_interval, load_episode=args.load_episode, plot_interval=args.plot_interval
     )
 
 if __name__ == '__main__':
