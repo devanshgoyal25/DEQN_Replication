@@ -22,7 +22,7 @@ plt.rc('ytick', labelsize='small')
 std_figsize = (4, 4)
 
 def main():
-
+    
     import argparse
 
     parser = argparse.ArgumentParser(description='DEQN Replication GGR')
@@ -37,13 +37,13 @@ def main():
 
     print('##### input arguments #####')
     path_wd = '.'
-    num_agents = A = 6
+    num_agents = A = 6 
     num_episodes = 1000
     len_episodes = 10240 # size of simulated dataset per episode
     epochs_per_episode = 20
     minibatch_size = 512
     num_minibatches = int(len_episodes / minibatch_size)
-    num_input_nodes = 8 + 4 * A
+    num_input_nodes = 8 + 4 * A  
     num_hidden_nodes = [100, 50]
     num_output_nodes = (A - 1)
     optimizer_name = 'adam'
@@ -62,7 +62,7 @@ def main():
     print(f'prob_tfp_high: {args.tfp_h}')
     print(f'prob_depr_high: {args.depr_h}')
 
-    print('###########################')
+    print('###########################')   
 
     # define output directories
     output_path = os.path.join(path_wd, 'output')
@@ -87,7 +87,7 @@ def main():
 
     # call the DEQN
     train(
-        A=A, prob_tfp_high=args.tfp_h, prob_depr_high=args.depr_h, seed=args.seed, lr=lr, optimizer_name=optimizer_name,
+        A=A, prob_tfp_high=args.tfp_h, prob_depr_high=args.depr_h, seed=args.seed, lr=lr, optimizer_name=optimizer_name, 
         num_input_nodes=num_input_nodes, num_hidden_nodes=num_hidden_nodes, num_output_nodes=num_output_nodes, minibatch_size=minibatch_size,
         num_episodes=num_episodes, len_episodes=len_episodes, epochs_per_episode=epochs_per_episode, path_wd=path_wd,
         save_interval=args.save_interval, load_episode=args.load_episode, plot_interval=args.plot_interval

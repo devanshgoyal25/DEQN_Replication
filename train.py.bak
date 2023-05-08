@@ -9,7 +9,7 @@ import pickle as pkl
 # tf.config.run_functions_eagerly(True)
 
 def train(
-    A, prob_tfp_high, prob_depr_high, seed, lr, optimizer_name,
+    A, prob_tfp_high, prob_depr_high, seed, lr, optimizer_name, 
     num_input_nodes, num_hidden_nodes, num_output_nodes, minibatch_size,
     num_episodes, len_episodes, epochs_per_episode, path_wd,
     save_interval, plot_interval, load_episode=0
@@ -626,11 +626,11 @@ def train(
                     max_ee = np.maximum(max_ee, mb_max_ee)
 
             if epoch == 0:
-                cost_store.append(minibatch_cost)
-                mov_ave_cost_store.append(np.mean(cost_store[-100:]))
+            cost_store.append(minibatch_cost)
+            mov_ave_cost_store.append(np.mean(cost_store[-100:]))
 
             for step, minibatch_X in enumerate(minibatches):
-                train_step(tf.cast(minibatch_X, dtype=tf.float32))
+            train_step(tf.cast(minibatch_X, dtype=tf.float32))
 
         print(f"Episode {episode} done.")
         print(f"Episode: {episode} \t Cost: {np.log10(cost_store[-1])}")
