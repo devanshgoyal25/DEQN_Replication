@@ -555,6 +555,7 @@ def train(
 
         return X_episodes
 
+    # given a dataset, create random minibatches
     def create_minibatches(training_data_X, buffer_size, batch_size, seed):
         train_dataset = tf.data.Dataset.from_tensor_slices(training_data_X)
         train_dataset = train_dataset.shuffle(buffer_size=buffer_size, seed=seed).batch(batch_size)
@@ -563,7 +564,8 @@ def train(
     #--------------
 
     #-----ANALYTIC SOLUTION -----
-
+    
+    # get the analytic solution to the model
     @tf.function(reduce_retracing=True)
     def get_analytic(X):
         inc = X[:, 8 + 3 * A : 8 + 4 * A]
@@ -575,30 +577,38 @@ def train(
     #--------------
 
     #---TRAINING---
+
+    # set the running seed for batching, along with params
     train_seed = 0
     buffer_size = len_episodes
     num_batches = buffer_size // minibatch_size
 
+    # plotting lists
     cost_store, mov_ave_cost_store = [], []
 
+    # ploting helper vars
     all_ages = np.arange(1, A+1)
     ages = np.arange(1, A)
 
     time_start = datetime.now()
     print(f"start time: {time_start}")
 
+    # generate simulation start point
     X_data_train = np.random.rand(1, num_input_nodes)
     X_data_train[:, 0] = (X_data_train[:, 0] > 0.5)
     X_data_train[:, 1:] = X_data_train[:, 1:] + 0.1
     assert np.min(np.sum(X_data_train[:, 1:], axis=1, keepdims=True) > 0) == True, 'Starting point has negative aggregate capital (K)!'
     print('Calculated a valid starting point')
 
+    # plotting params
     plt.rcParams.update({'font.size': 12})
     plt.rc('xtick', labelsize='small')
     plt.rc('ytick', labelsize='small')
     std_figsize = (4, 4)
 
+    # training loop begins
     for episode in range(load_episode, num_episodes):
+        # simulate dataset
         print(f"Start training for {epochs_per_episode} epochs.")
         X_episodes = simulate_episodes(X_data_train, len_episodes, net)
         X_data_train = X_episodes[-1, :].reshape([1, -1])
@@ -609,6 +619,7 @@ def train(
         ee_error = np.zeros((1, A-1))
         max_ee = np.zeros((1, A-1))
 
+        # minibatch gradient descent loop
         for epoch in range(epochs_per_episode):
             train_seed += 1
             minibatch_cost = 0
@@ -635,7 +646,7 @@ def train(
         print(f"Episode {episode} done.")
         print(f"Episode: {episode} \t Cost: {np.log10(cost_store[-1])}")
 
-        # We save the model into a pickle file after a specified number of episodes. Default is 20.
+        # save the model into a .pkl every 20 episodes (default)
         if episode % save_interval == 0:
             if load_episode ==0:
                 model_history[episode] = net
@@ -648,7 +659,7 @@ def train(
                 pkl.dump(model_history, handle)
 
         if episode % plot_interval == 0:
-            # Plot the loss function
+            # plot the loss function
             plt.figure(figsize=std_figsize)
             plt.clf()
             ax = plt.subplot(1, 1, 1)
@@ -660,7 +671,7 @@ def train(
             plt.savefig('./output/plots/loss_ep_%d.pdf' % episode, bbox_inches='tight')
             plt.close()
 
-            # Plotting the REE from the Euler Equation
+            # plot the relative Euler equation losses
             plt.figure(figsize=std_figsize)
             plt.clf()
             ax = plt.subplot(1, 1, 1)
@@ -672,7 +683,7 @@ def train(
             plt.savefig('./output/plots/relee_ep_%d.pdf' % episode, bbox_inches='tight')
             plt.close()
 
-            # Plotting the capital distribution for each agent
+            # plot capital distribution by age
             plt.figure(figsize=std_figsize)
             plt.clf()
             ax = plt.subplot(1, 1, 1)
@@ -686,30 +697,29 @@ def train(
             plt.savefig('./output/plots/distk_ep_%d.pdf' % episode, bbox_inches='tight')
             plt.close()
 
-            # =======================================================================================
-            # Sample 50 states and compare the neural network's prediction to the analytical solution
+            # sample states and compare performance to the analytic solution
             pick = np.random.randint(len_episodes, size=50)
             random_states = X_episodes[pick, :]
 
-            # Sorting the states by the index of the exogenous shocks
+            # sort states by shock
             random_states_1 = random_states[random_states[:, 0] == 0]
             random_states_2 = random_states[random_states[:, 0] == 1]
             random_states_3 = random_states[random_states[:, 0] == 2]
             random_states_4 = random_states[random_states[:, 0] == 3]
 
-            # Computing the capital distribution for every state
+            # compute the capital distribution for each state
             random_k_1 = random_states_1[:, 8: 8 + A]
             random_k_2 = random_states_2[:, 8: 8 + A]
             random_k_3 = random_states_3[:, 8: 8 + A]
             random_k_4 = random_states_4[:, 8: 8 + A]
 
-            # Approximate solution with a neural network
+            # approximate a solution with the neural network
             nn_pred_1 = net(random_states_1)
             nn_pred_2 = net(random_states_2)
             nn_pred_3 = net(random_states_3)
             nn_pred_4 = net(random_states_4)
 
-            # Calculating the solution analytically
+            # calculate the solution analytically
             true_pol_1 = get_analytic(random_states_1)
             true_pol_2 = get_analytic(random_states_2)
             true_pol_3 = get_analytic(random_states_3)
@@ -719,13 +729,13 @@ def train(
                 plt.figure(figsize=std_figsize)
                 ax = plt.subplot(1, 1, 1)
                 
-                # Plotting the analytical solution with a circle
+                # plot the analytical solution with a circle
                 ax.plot(random_k_1[:, i], true_pol_1[:, i], 'ro', mfc='none', alpha=0.5, markersize=6, label='analytic')
                 ax.plot(random_k_2[:, i], true_pol_2[:, i], 'bo', mfc='none', alpha=0.5, markersize=6)
                 ax.plot(random_k_3[:, i], true_pol_3[:, i], 'go', mfc='none', alpha=0.5, markersize=6)
                 ax.plot(random_k_4[:, i], true_pol_4[:, i], 'yo', mfc='none', alpha=0.5, markersize=6)
                 
-                # Plotting the prediction by the neural network
+                # plot the prediction by the neural network with a dot
                 ax.plot(random_k_1[:, i], nn_pred_1[:, i], 'r*', markersize=2, label='DEQN')
                 ax.plot(random_k_2[:, i], nn_pred_2[:, i], 'b*', markersize=2)
                 ax.plot(random_k_3[:, i], nn_pred_3[:, i], 'g*', markersize=2)

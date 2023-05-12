@@ -1,3 +1,8 @@
+# Title: DEQN Relication
+# Date: 5/12/23
+# Authors: Samuel Ross, Devansh Goyal, Annais Gangolf (Haverford College)
+# Info: The following code is a partial relication of the materials provided at https://github.com/sischei/DeepEquilibriumNets. Portions from this repository are used throughout.
+
 import os
 import argparse
 from datetime import datetime
@@ -33,7 +38,6 @@ def main():
     parser.add_argument('--plot_interval', type=int, default=20, help='Interval for plotting results.')
     parser.add_argument('--save_interval', type=int, default=20, help='Interval for saving the model.')
     args = parser.parse_args()
-    # print(args)
 
     print('##### input arguments #####')
     path_wd = '.'
