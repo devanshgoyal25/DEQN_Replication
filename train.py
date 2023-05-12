@@ -635,7 +635,7 @@ def train(
         print(f"Episode {episode} done.")
         print(f"Episode: {episode} \t Cost: {np.log10(cost_store[-1])}")
 
-        #Saving the neural network after a specified number of episodes. Default is 20
+        # We save the model into a pickle file after a specified number of episodes. Default is 20.
         if episode % save_interval == 0:
             if load_episode ==0:
                 model_history[episode] = net
@@ -660,7 +660,7 @@ def train(
             plt.savefig('./output/plots/loss_ep_%d.pdf' % episode, bbox_inches='tight')
             plt.close()
 
-            # Plot the relative errors in the Euler equation
+            # Plotting the REE from the Euler Equation
             plt.figure(figsize=std_figsize)
             plt.clf()
             ax = plt.subplot(1, 1, 1)
@@ -672,7 +672,7 @@ def train(
             plt.savefig('./output/plots/relee_ep_%d.pdf' % episode, bbox_inches='tight')
             plt.close()
 
-            # Plot the capital distribution
+            # Plotting the capital distribution for each agent
             plt.figure(figsize=std_figsize)
             plt.clf()
             ax = plt.subplot(1, 1, 1)
@@ -691,25 +691,25 @@ def train(
             pick = np.random.randint(len_episodes, size=50)
             random_states = X_episodes[pick, :]
 
-            # Sort the states by the exogenous shock
+            # Sorting the states by the index of the exogenous shocks
             random_states_1 = random_states[random_states[:, 0] == 0]
             random_states_2 = random_states[random_states[:, 0] == 1]
             random_states_3 = random_states[random_states[:, 0] == 2]
             random_states_4 = random_states[random_states[:, 0] == 3]
 
-            # Get corresponding capital distribution for plots
+            # Computing the capital distribution for every state
             random_k_1 = random_states_1[:, 8: 8 + A]
             random_k_2 = random_states_2[:, 8: 8 + A]
             random_k_3 = random_states_3[:, 8: 8 + A]
             random_k_4 = random_states_4[:, 8: 8 + A]
 
-            # Generate a prediction using the neural network
+            # Approximate solution with a neural network
             nn_pred_1 = net(random_states_1)
             nn_pred_2 = net(random_states_2)
             nn_pred_3 = net(random_states_3)
             nn_pred_4 = net(random_states_4)
 
-            # Calculate the analytical solution
+            # Calculating the solution analytically
             true_pol_1 = get_analytic(random_states_1)
             true_pol_2 = get_analytic(random_states_2)
             true_pol_3 = get_analytic(random_states_3)
@@ -718,12 +718,14 @@ def train(
             for i in range(A - 1):
                 plt.figure(figsize=std_figsize)
                 ax = plt.subplot(1, 1, 1)
-                # Plot the true solution with a circle
+                
+                # Plotting the analytical solution with a circle
                 ax.plot(random_k_1[:, i], true_pol_1[:, i], 'ro', mfc='none', alpha=0.5, markersize=6, label='analytic')
                 ax.plot(random_k_2[:, i], true_pol_2[:, i], 'bo', mfc='none', alpha=0.5, markersize=6)
                 ax.plot(random_k_3[:, i], true_pol_3[:, i], 'go', mfc='none', alpha=0.5, markersize=6)
                 ax.plot(random_k_4[:, i], true_pol_4[:, i], 'yo', mfc='none', alpha=0.5, markersize=6)
-                # Plot the prediction of the neural net
+                
+                # Plotting the prediction by the neural network
                 ax.plot(random_k_1[:, i], nn_pred_1[:, i], 'r*', markersize=2, label='DEQN')
                 ax.plot(random_k_2[:, i], nn_pred_2[:, i], 'b*', markersize=2)
                 ax.plot(random_k_3[:, i], nn_pred_3[:, i], 'g*', markersize=2)
