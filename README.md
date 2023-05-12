@@ -15,5 +15,5 @@ python main.py [--seed] SEED [--plot-interval] PLOT_INTERVAL [--save-interval] S
 ```
 
 ## Results
-We present our results along with a detailed description of the economic model and the neural network in `report.pdf`. We provide results for the baseline analytical model as specified by Azinovic et al. and modify it to allow for transition probabilities. 
+We present our results along with a detailed description of the economic model and the neural network in `GangolfGoyalRoss_CMSCH360_FinalProject.pdf`. We provide results for the baseline analytical model as specified by Azinovic et al. and modify it to allow for transition probabilities. 
 
